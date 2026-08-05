@@ -65,12 +65,26 @@ const App = {
     if(id==='screen-mypage') initMyPage();
     if(id==='screen-userselect') renderUserSelect();
     if(id==='screen-health-graph') HGraph.init();
+    if(id==='screen-health-wizard') Wizard.start();
   },
   initStart(){
     const users=DB.getUsers(),session=DB.getSession();
-    if(session&&DB.getUser(session)) this.goTo('screen-home');
-    else if(users.length>0) this.goTo('screen-userselect');
-    else this.goTo('screen-welcome');
+    if(session&&DB.getUser(session)){
+      // ログイン済み → 今日まだウィザードを出していないか確認
+      const uid=session;
+      const today=getTodayString();
+      const wizKey='b5_wiz_shown_'+uid+'_'+today;
+      if(!localStorage.getItem(wizKey)){
+        // 今日まだウィザードを出していない → ウィザード起動
+        this.goTo('screen-health-wizard');
+      } else {
+        this.goTo('screen-home');
+      }
+    } else if(users.length>0){
+      this.goTo('screen-userselect');
+    } else {
+      this.goTo('screen-welcome');
+    }
   },
   currentUserId(){ return DB.getSession(); },
   currentUser(){ return DB.getUser(this.currentUserId()); },
@@ -268,7 +282,15 @@ const UserCRUD={
       const nu={id:genId(),name,dob,gender:_selectedGender,avatar:_selectedAvatar,familyKeys:[..._selectedFamilyKeys]};
       users.push(nu); savedId=nu.id;
     }
-    DB.saveUsers(users); DB.setSession(savedId); App.goTo('screen-home');
+    DB.saveUsers(users); DB.setSession(savedId);
+    // 初回登録時はウィザードへ
+    const today=getTodayString();
+    const wizKey='b5_wiz_shown_'+savedId+'_'+today;
+    if(!localStorage.getItem(wizKey)){
+      App.goTo('screen-health-wizard');
+    } else {
+      App.goTo('screen-home');
+    }
   },
   confirmDelete(){
     const editId=document.getElementById('edit-user-id').value;
@@ -696,6 +718,203 @@ function renderCal(){
   document.getElementById('cal-done-count').textContent=done;
   document.getElementById('cal-streak').textContent=getStreak(dates);
 }
+
+// ============================================================
+// HEALTH WIZARD（初回ヒアリング）
+// ============================================================
+const Wizard = {
+  step: 0,            // 現在のステップ (0=体重, 1=血圧, 2=服薬, 3=完了)
+  totalSteps: 3,
+  data: {             // 入力中のデータ
+    weight: 60.0,
+    sys: 120,
+    dia: 80,
+    pulse: 70,
+    medicine: null    // true/false/null(未選択)
+  },
+
+  // ウィザード開始
+  start() {
+    this.step = 0;
+    this.data = { weight: 60.0, sys: 120, dia: 80, pulse: 70, medicine: null };
+    this._updateDots();
+    this._showPanel(0);
+
+    // 直接入力欄をピッカー値に同期
+    document.getElementById('wiz-weight-direct').value = this.data.weight.toFixed(1);
+    document.getElementById('wiz-weight-val').textContent = this.data.weight.toFixed(1);
+    document.getElementById('wiz-sys-val').textContent = this.data.sys;
+    document.getElementById('wiz-dia-val').textContent = this.data.dia;
+    document.getElementById('wiz-pulse-val').textContent = this.data.pulse;
+  },
+
+  // ＋／－ボタンで値を変更
+  change(field, delta) {
+    const limits = {
+      weight: { min: 20, max: 200, step: 0.5 },
+      sys:    { min: 60, max: 250, step: 1 },
+      dia:    { min: 40, max: 150, step: 1 },
+      pulse:  { min: 30, max: 200, step: 1 }
+    };
+    const lim = limits[field];
+    let val = this.data[field] + delta;
+    val = Math.max(lim.min, Math.min(lim.max, val));
+    // 体重は小数点1桁で丸める
+    if (field === 'weight') val = Math.round(val * 10) / 10;
+    else val = Math.round(val);
+    this.data[field] = val;
+    const idMap = { weight:'wiz-weight-val', sys:'wiz-sys-val', dia:'wiz-dia-val', pulse:'wiz-pulse-val' };
+    const el = document.getElementById(idMap[field]);
+    if (el) el.textContent = field === 'weight' ? val.toFixed(1) : val;
+    // 体重は直接入力欄も同期
+    if (field === 'weight') {
+      document.getElementById('wiz-weight-direct').value = val.toFixed(1);
+    }
+  },
+
+  // 直接入力欄から値を同期
+  syncDirect(field) {
+    const val = parseFloat(document.getElementById('wiz-weight-direct').value);
+    if (!isNaN(val) && val >= 20 && val <= 200) {
+      this.data.weight = Math.round(val * 10) / 10;
+      document.getElementById('wiz-weight-val').textContent = this.data.weight.toFixed(1);
+    }
+  },
+
+  // 服薬選択
+  selectMedicine(taken) {
+    this.data.medicine = taken;
+    document.getElementById('wiz-med-yes').classList.toggle('selected', taken === true);
+    document.getElementById('wiz-med-no').classList.toggle('selected', taken === false);
+    document.getElementById('wiz-med-next').disabled = false;
+  },
+
+  // 次へ
+  next() {
+    this._saveCurrentStep();
+    if (this.step < this.totalSteps - 1) {
+      this.step++;
+      this._updateDots();
+      this._showPanel(this.step);
+    } else {
+      // 最後のステップを保存して完了画面へ
+      this._showComplete();
+    }
+  },
+
+  // 戻る
+  back() {
+    if (this.step > 0) {
+      this.step--;
+      this._updateDots();
+      this._showPanel(this.step);
+    }
+  },
+
+  // スキップ（今日のウィザードを終了してホームへ）
+  skip() {
+    this._markShown();
+    App.goTo('screen-home');
+  },
+
+  // 完了してホームへ
+  finish() {
+    this._markShown();
+    App.goTo('screen-home');
+  },
+
+  // 現在ステップのデータを保存
+  _saveCurrentStep() {
+    const uid = App.currentUserId();
+    if (!uid) return;
+    const today = getTodayString();
+    if (this.step === 0) {
+      // 体重
+      const w = this.data.weight;
+      if (w >= 20 && w <= 200) {
+        const arr = DB.getHealth(uid, 'weight').filter(r => r.date !== today);
+        arr.push({ date: today, weight: w });
+        DB.saveHealth(uid, 'weight', arr);
+      }
+    } else if (this.step === 1) {
+      // 血圧
+      const { sys, dia, pulse } = this.data;
+      if (sys >= 60 && dia >= 40) {
+        const arr = DB.getHealth(uid, 'bp').filter(r => r.date !== today);
+        arr.push({ date: today, sys, dia, pulse });
+        DB.saveHealth(uid, 'bp', arr);
+      }
+    } else if (this.step === 2) {
+      // 服薬
+      if (this.data.medicine !== null) {
+        const arr = DB.getHealth(uid, 'medicine').filter(r => r.date !== today);
+        arr.push({ date: today, taken: this.data.medicine });
+        DB.saveHealth(uid, 'medicine', arr);
+      }
+    }
+  },
+
+  // 完了画面表示
+  _showComplete() {
+    this._showPanel('complete');
+    const uid = App.currentUserId();
+    const today = getTodayString();
+
+    // サマリー表示
+    const summary = document.getElementById('wiz-summary');
+    summary.innerHTML = '';
+    const items = [
+      { icon: '⚖️', label: '体重', val: this.data.weight.toFixed(1) + ' kg' },
+      { icon: '❤️', label: '血圧', val: this.data.sys + ' / ' + this.data.dia + ' mmHg' },
+      { icon: '💊', label: '服薬', val: this.data.medicine === true ? '服薬済み ✓' : this.data.medicine === false ? '未服薬' : '記録なし' }
+    ];
+    items.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'wiz-summary-item';
+      div.innerHTML =
+        '<span class="wiz-summary-icon">' + item.icon + '</span>' +
+        '<div><div class="wiz-summary-label">' + item.label + '</div>' +
+        '<div class="wiz-summary-val">' + item.val + '</div></div>';
+      summary.appendChild(div);
+    });
+  },
+
+  // 今日のウィザード表示済みフラグを保存
+  _markShown() {
+    const uid = App.currentUserId();
+    if (uid) {
+      localStorage.setItem('b5_wiz_shown_' + uid + '_' + getTodayString(), '1');
+    }
+    HealthHome.update();
+  },
+
+  // ドット更新
+  _updateDots() {
+    for (let i = 0; i < this.totalSteps; i++) {
+      const dot = document.getElementById('wiz-dot-' + i);
+      if (!dot) continue;
+      dot.className = 'wiz-step';
+      if (i < this.step) dot.classList.add('done');
+      else if (i === this.step) dot.classList.add('active');
+    }
+  },
+
+  // パネル切り替え
+  _showPanel(id) {
+    // 数字 or 'complete'
+    const panels = ['0', '1', '2', 'complete'];
+    panels.forEach(p => {
+      const el = document.getElementById('wiz-panel-' + p);
+      if (el) el.style.display = 'none';
+    });
+    const target = document.getElementById('wiz-panel-' + id);
+    if (target) target.style.display = 'flex';
+    // 服薬パネルは次へボタンを初期無効
+    if (id === 2) {
+      document.getElementById('wiz-med-next').disabled = (this.data.medicine === null);
+    }
+  }
+};
 
 // ============================================================
 // INIT

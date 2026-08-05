@@ -189,6 +189,117 @@
   </nav>
 </div>
 
+<!-- ===================== HEALTH WIZARD ===================== -->
+<div id="screen-health-wizard" class="screen">
+  <!-- ステップ表示バー -->
+  <div class="wiz-top-bar">
+    <button class="wiz-skip-btn" onclick="Wizard.skip()">スキップ</button>
+    <div class="wiz-steps">
+      <div class="wiz-step" id="wiz-dot-0"></div>
+      <div class="wiz-step" id="wiz-dot-1"></div>
+      <div class="wiz-step" id="wiz-dot-2"></div>
+    </div>
+    <div style="width:60px"></div>
+  </div>
+
+  <!-- STEP 0: 体重 -->
+  <div class="wiz-panel" id="wiz-panel-0">
+    <div class="wiz-icon">⚖️</div>
+    <h2 class="wiz-title">体重を教えてください</h2>
+    <p class="wiz-desc">今日の体重を入力してください。<br>数字をタップして変更できます。</p>
+    <div class="wiz-number-picker">
+      <button class="wiz-num-btn wiz-minus" onclick="Wizard.change('weight',-0.5)">－</button>
+      <div class="wiz-num-display">
+        <span class="wiz-num-value" id="wiz-weight-val">60.0</span>
+        <span class="wiz-num-unit">kg</span>
+      </div>
+      <button class="wiz-num-btn wiz-plus" onclick="Wizard.change('weight',0.5)">＋</button>
+    </div>
+    <p class="wiz-input-hint">または直接入力：</p>
+    <input type="number" class="wiz-direct-input" id="wiz-weight-direct" step="0.1" min="20" max="200" placeholder="例：65.5"
+           oninput="Wizard.syncDirect('weight')" />
+    <div class="wiz-btn-row">
+      <button class="wiz-next-btn" onclick="Wizard.next()">次へ →</button>
+    </div>
+  </div>
+
+  <!-- STEP 1: 血圧 -->
+  <div class="wiz-panel" id="wiz-panel-1" style="display:none">
+    <div class="wiz-icon">❤️</div>
+    <h2 class="wiz-title">血圧を教えてください</h2>
+    <p class="wiz-desc">上（最高血圧）と下（最低血圧）を<br>入力してください。</p>
+    <div class="wiz-bp-row">
+      <div class="wiz-bp-col">
+        <div class="wiz-bp-label">上（最高）</div>
+        <div class="wiz-number-picker">
+          <button class="wiz-num-btn wiz-minus" onclick="Wizard.change('sys',-1)">－</button>
+          <div class="wiz-num-display">
+            <span class="wiz-num-value" id="wiz-sys-val">120</span>
+            <span class="wiz-num-unit" style="font-size:13px">mmHg</span>
+          </div>
+          <button class="wiz-num-btn wiz-plus" onclick="Wizard.change('sys',1)">＋</button>
+        </div>
+      </div>
+      <div class="wiz-bp-col">
+        <div class="wiz-bp-label">下（最低）</div>
+        <div class="wiz-number-picker">
+          <button class="wiz-num-btn wiz-minus" onclick="Wizard.change('dia',-1)">－</button>
+          <div class="wiz-num-display">
+            <span class="wiz-num-value" id="wiz-dia-val">80</span>
+            <span class="wiz-num-unit" style="font-size:13px">mmHg</span>
+          </div>
+          <button class="wiz-num-btn wiz-plus" onclick="Wizard.change('dia',1)">＋</button>
+        </div>
+      </div>
+    </div>
+    <div class="wiz-pulse-row">
+      <div class="wiz-bp-label">脈拍（任意）</div>
+      <div class="wiz-number-picker" style="max-width:240px;margin:0 auto">
+        <button class="wiz-num-btn wiz-minus" onclick="Wizard.change('pulse',-1)">－</button>
+        <div class="wiz-num-display">
+          <span class="wiz-num-value" id="wiz-pulse-val">70</span>
+          <span class="wiz-num-unit">bpm</span>
+        </div>
+        <button class="wiz-num-btn wiz-plus" onclick="Wizard.change('pulse',1)">＋</button>
+      </div>
+    </div>
+    <div class="wiz-btn-row">
+      <button class="wiz-back-btn" onclick="Wizard.back()">← 戻る</button>
+      <button class="wiz-next-btn" onclick="Wizard.next()">次へ →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: 服薬 -->
+  <div class="wiz-panel" id="wiz-panel-2" style="display:none">
+    <div class="wiz-icon">💊</div>
+    <h2 class="wiz-title">今日の薬は<br>飲みましたか？</h2>
+    <p class="wiz-desc">毎日の服薬記録ができます。</p>
+    <div class="wiz-med-btns">
+      <button class="wiz-med-yes" id="wiz-med-yes" onclick="Wizard.selectMedicine(true)">
+        ✅ 飲んだ
+      </button>
+      <button class="wiz-med-no" id="wiz-med-no" onclick="Wizard.selectMedicine(false)">
+        ✕ 飲んでいない
+      </button>
+    </div>
+    <div class="wiz-btn-row">
+      <button class="wiz-back-btn" onclick="Wizard.back()">← 戻る</button>
+      <button class="wiz-next-btn" id="wiz-med-next" onclick="Wizard.next()" disabled>記録して完了 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: 完了 -->
+  <div class="wiz-panel" id="wiz-panel-complete" style="display:none">
+    <div class="wiz-icon" style="animation:pop .5s cubic-bezier(.68,-.55,.265,1.55)">🎉</div>
+    <h2 class="wiz-title">記録完了！</h2>
+    <p class="wiz-desc">健康記録ができました。<br>毎日続けると習慣になります！</p>
+    <div class="wiz-summary" id="wiz-summary"></div>
+    <div class="wiz-btn-row" style="margin-top:20px">
+      <button class="wiz-next-btn" onclick="Wizard.finish()">アプリを始める 🏃</button>
+    </div>
+  </div>
+</div>
+
 <!-- HEALTH INPUT MODAL -->
 <div class="modal-overlay" id="health-modal">
   <div class="modal-sheet" style="position:relative">
