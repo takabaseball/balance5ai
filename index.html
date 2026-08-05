@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Balance5 AI</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ===================== SPLASH ===================== -->
+<div id="screen-splash" class="screen active">
+  <div class="splash-content">
+    <div class="logo-icon">🏃</div>
+    <h1 class="logo-title">Balance5 AI</h1>
+    <p class="logo-tagline">Every day, 5 minutes for a stronger tomorrow.</p>
+    <p class="logo-tagline-jp">毎日5分、未来の自分を強くする。</p>
+  </div>
+  <button class="btn-primary" onclick="App.initStart()">はじめる</button>
+</div>
+
+<!-- ===================== WELCOME ===================== -->
+<div id="screen-welcome" class="screen">
+  <div class="welcome-content">
+    <div class="welcome-hero">👨‍👩‍👧‍👦</div>
+    <h2 class="welcome-title">ご家族に設定してもらいましょう</h2>
+    <p class="welcome-desc">このアプリは、<strong>息子さん・娘さん・お孫さん</strong>があなたのために設定します。<br><br>ご家族の名前がログインキーになります。難しいパスワードは不要です。</p>
+    <div class="welcome-steps">
+      <div class="welcome-step"><span class="step-num">1</span><span>ご家族がプロフィールを登録</span></div>
+      <div class="welcome-step"><span class="step-num">2</span><span>「〇〇の名前でログイン」するだけ</span></div>
+      <div class="welcome-step"><span class="step-num">3</span><span>毎日5分の運動習慣スタート！</span></div>
+    </div>
+    <button class="btn-primary" onclick="UserCRUD.openNew()">プロフィールを登録する</button>
+  </div>
+</div>
+
+<!-- ===================== USER SELECT ===================== -->
+<div id="screen-userselect" class="screen">
+  <div class="top-bar">
+    <span class="app-name">Balance5 AI</span>
+    <button class="icon-btn" onclick="UserCRUD.openNew()">＋</button>
+  </div>
+  <div class="userselect-content">
+    <p class="userselect-label">どなたのアプリですか？</p>
+    <div class="user-cards" id="user-cards"></div>
+    <button class="btn-text" onclick="UserCRUD.openNew()">＋ 新しくプロフィールを追加</button>
+  </div>
+</div>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="screen-login" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="App.goTo('screen-userselect')">← 戻る</button>
+    <span class="screen-title">ログイン</span>
+  </div>
+  <div class="login-content">
+    <div class="login-avatar" id="login-avatar">👤</div>
+    <h2 class="login-name" id="login-name">名前</h2>
+    <p class="login-hint" id="login-hint">登録した家族の名前を入力してください</p>
+    <div class="family-key-area">
+      <label class="field-label">登録した家族の名前</label>
+      <div class="family-key-grid" id="family-key-grid"></div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">または直接入力</label>
+      <input type="text" id="login-key-input" class="field-input" placeholder="家族の名前を入力" autocomplete="off" />
+    </div>
+    <p class="login-error" id="login-error" style="display:none">家族の名前が合いません。もう一度お試しください。</p>
+    <button class="btn-primary" onclick="Auth.login()">ログイン</button>
+  </div>
+</div>
+
+<!-- ===================== REGISTER ===================== -->
+<div id="screen-register" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="App.backFromRegister()">← 戻る</button>
+    <span class="screen-title" id="register-title">プロフィール登録</span>
+  </div>
+  <div class="register-content">
+    <p class="register-intro"><strong>ご家族の方へ：</strong><br>使う方のプロフィールを入力してください。<br>「家族のキー」がログインに使われます。</p>
+    <input type="hidden" id="edit-user-id" value="" />
+    <div class="field-group">
+      <label class="field-label">お名前 <span class="required">必須</span></label>
+      <input type="text" id="reg-name" class="field-input" placeholder="例：田中花子" />
+    </div>
+    <div class="field-group">
+      <label class="field-label">生年月日 <span class="required">必須</span></label>
+      <input type="date" id="reg-dob" class="field-input" onchange="updateAgePreview()" />
+      <p class="field-hint" id="age-preview"></p>
+    </div>
+    <div class="field-group">
+      <label class="field-label">性別</label>
+      <div class="gender-options">
+        <button class="gender-btn" data-val="male" onclick="selectGender(this)">男性</button>
+        <button class="gender-btn" data-val="female" onclick="selectGender(this)">女性</button>
+        <button class="gender-btn" data-val="other" onclick="selectGender(this)">その他</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">家族のキー（ログインに使います）<span class="required">必須</span></label>
+      <p class="field-hint">登録したご家族の名前を選んでください（複数可）</p>
+      <div class="family-key-list" id="family-key-list"></div>
+      <div class="add-family-row">
+        <input type="text" id="new-family-input" class="field-input" placeholder="新しく追加（例：太郎、はなこ）" />
+        <button class="btn-small" onclick="FamilyKeys.addFromInput()">追加</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">アバター</label>
+      <div class="avatar-grid">
+        <button class="avatar-btn" data-val="👴" onclick="selectAvatar(this)">👴</button>
+        <button class="avatar-btn" data-val="👵" onclick="selectAvatar(this)">👵</button>
+        <button class="avatar-btn" data-val="🧓" onclick="selectAvatar(this)">🧓</button>
+        <button class="avatar-btn" data-val="👨" onclick="selectAvatar(this)">👨</button>
+        <button class="avatar-btn" data-val="👩" onclick="selectAvatar(this)">👩</button>
+        <button class="avatar-btn" data-val="🙂" onclick="selectAvatar(this)">🙂</button>
+      </div>
+    </div>
+    <p class="reg-error" id="reg-error" style="display:none"></p>
+    <button class="btn-primary" id="reg-submit-btn" onclick="UserCRUD.save()">登録してアプリを開始</button>
+    <button class="btn-danger" id="reg-delete-btn" onclick="UserCRUD.confirmDelete()" style="display:none">このプロフィールを削除</button>
+  </div>
+</div>
+
+<!-- ===================== HOME ===================== -->
+<div id="screen-home" class="screen">
+  <div class="top-bar">
+    <div class="top-bar-user" onclick="App.goTo('screen-mypage')">
+      <span id="home-avatar">👴</span>
+      <span id="home-username">さん</span>
+    </div>
+    <button class="icon-btn" onclick="App.goTo('screen-premium')">⭐</button>
+  </div>
+  <div class="coach-card">
+    <div class="coach-avatar">🤖</div>
+    <div class="coach-bubble"><p id="coach-message">おはようございます！今日も5分だけ体を動かしましょう。</p></div>
+  </div>
+  <div class="streak-bar">
+    <span class="streak-icon">🔥</span>
+    <span id="streak-count">0</span>
+    <span class="streak-label">日連続</span>
+  </div>
+  <div class="main-actions">
+    <button class="card-btn btn-exercise" onclick="startHealthCheck()">
+      <span class="card-icon">💪</span>
+      <span class="card-label">今日の5分運動</span>
+      <span class="card-sub" id="exercise-card-sub">AIがメニューを提案します</span>
+    </button>
+    <button class="card-btn btn-calendar" onclick="App.goTo('screen-calendar')">
+      <span class="card-icon">📅</span>
+      <span class="card-label">継続カレンダー</span>
+      <span class="card-sub" id="calendar-summary">今月の記録を見る</span>
+    </button>
+  </div>
+  <div class="health-section">
+    <p class="health-section-title">🏥 健康記録</p>
+    <div class="health-cards">
+      <div class="health-card" onclick="HealthModal.open('weight')">
+        <div class="health-card-icon">⚖️</div>
+        <div class="health-card-label">体重</div>
+        <div class="health-card-value" id="home-weight-val">--</div>
+        <div class="health-card-unit">kg</div>
+      </div>
+      <div class="health-card" onclick="HealthModal.open('bp')">
+        <div class="health-card-icon">❤️</div>
+        <div class="health-card-label">血圧</div>
+        <div class="health-card-value" id="home-bp-val">--/--</div>
+        <div class="health-card-unit">mmHg</div>
+      </div>
+    </div>
+    <div class="medicine-row" onclick="HealthModal.open('medicine')">
+      <div class="medicine-row-left">
+        <span class="medicine-icon">💊</span>
+        <div class="medicine-info">
+          <div class="medicine-label">今日の服薬</div>
+          <div class="medicine-status" id="home-medicine-status">未記録</div>
+        </div>
+      </div>
+      <button class="medicine-toggle-btn not-taken" id="home-medicine-btn" onclick="event.stopPropagation();HealthModal.toggleMedicine()">記録する</button>
+    </div>
+    <button class="btn-text" onclick="App.goTo('screen-health-graph')" style="margin-top:4px">📊 グラフで見る →</button>
+  </div>
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="setActiveNav(this);App.goTo('screen-home')">🏠<br><small>ホーム</small></button>
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-calendar')">📅<br><small>カレンダー</small></button>
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-health-graph')">📊<br><small>健康</small></button>
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-mypage')">👤<br><small>マイページ</small></button>
+  </nav>
+</div>
+
+<!-- HEALTH INPUT MODAL -->
+<div class="modal-overlay" id="health-modal">
+  <div class="modal-sheet" style="position:relative">
+    <button class="modal-close" onclick="HealthModal.close()">✕</button>
+    <h3 class="modal-title" id="modal-title">体重を記録</h3>
+    <div id="modal-weight-fields">
+      <div class="modal-field">
+        <label>体重 (kg)</label>
+        <input type="number" id="modal-weight-input" step="0.1" min="20" max="300" placeholder="例：65.5" />
+      </div>
+    </div>
+    <div id="modal-bp-fields" style="display:none">
+      <div class="modal-field">
+        <label>最高血圧 (mmHg)</label>
+        <input type="number" id="modal-bp-sys" min="60" max="250" placeholder="例：120" />
+      </div>
+      <div class="modal-field">
+        <label>最低血圧 (mmHg)</label>
+        <input type="number" id="modal-bp-dia" min="40" max="150" placeholder="例：80" />
+      </div>
+      <div class="modal-field">
+        <label>脈拍 (bpm)</label>
+        <input type="number" id="modal-bp-pulse" min="30" max="200" placeholder="例：72" />
+      </div>
+    </div>
+    <div id="modal-medicine-fields" style="display:none">
+      <p style="text-align:center;font-size:15px;color:var(--text-sub);margin-bottom:16px">今日の服薬状況を記録します</p>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-primary" style="margin-top:0;background:var(--primary)" onclick="HealthModal.saveMedicine(true)">💊 飲んだ</button>
+        <button class="btn-secondary" onclick="HealthModal.saveMedicine(false)">飲まなかった</button>
+      </div>
+    </div>
+    <div id="modal-save-row">
+      <button class="btn-primary" style="margin-top:0" onclick="HealthModal.save()">記録する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== HEALTH CHECK ===================== -->
+<div id="screen-healthcheck" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="App.goTo('screen-home')">← 戻る</button>
+    <span class="screen-title">今日の健康チェック</span>
+  </div>
+  <div class="check-content">
+    <div class="check-step">
+      <p class="check-question">① 今日の体調は？</p>
+      <div class="check-options">
+        <button class="check-option" onclick="selectCondition('good',this)"><span class="check-emoji">😊</span><span class="check-text">元気！</span></button>
+        <button class="check-option" onclick="selectCondition('tired',this)"><span class="check-emoji">😴</span><span class="check-text">少し疲れた</span></button>
+        <button class="check-option" onclick="selectCondition('pain',this)"><span class="check-emoji">😣</span><span class="check-text">腰が痛い</span></button>
+      </div>
+    </div>
+    <div class="check-step">
+      <p class="check-question">② 睡眠はとれましたか？</p>
+      <div class="check-options">
+        <button class="check-option" onclick="selectSleep('good',this)"><span class="check-emoji">😴</span><span class="check-text">よく眠れた</span></button>
+        <button class="check-option" onclick="selectSleep('bad',this)"><span class="check-emoji">💤</span><span class="check-text">あまり眠れなかった</span></button>
+      </div>
+    </div>
+    <div class="check-step">
+      <p class="check-question">③ 今の気分は？</p>
+      <div class="check-options">
+        <button class="check-option" onclick="selectMood('motivated',this)"><span class="check-emoji">🔥</span><span class="check-text">やる気満々</span></button>
+        <button class="check-option" onclick="selectMood('normal',this)"><span class="check-emoji">😐</span><span class="check-text">ふつう</span></button>
+        <button class="check-option" onclick="selectMood('low',this)"><span class="check-emoji">🙁</span><span class="check-text">気分が乗らない</span></button>
+      </div>
+    </div>
+    <button class="btn-primary" id="start-exercise-btn" onclick="goToExercise()" disabled>運動メニューを見る →</button>
+  </div>
+</div>
+
+<!-- ===================== EXERCISE ===================== -->
+<div id="screen-exercise" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="App.goTo('screen-home')">← ホーム</button>
+    <span class="screen-title">今日の5分運動</span>
+  </div>
+  <div class="exercise-content">
+    <div class="exercise-progress" id="exercise-progress"></div>
+    <div class="exercise-card">
+      <div class="exercise-number" id="exercise-number">1 / 3</div>
+      <div class="exercise-icon" id="exercise-icon">🪑</div>
+      <h2 class="exercise-name" id="exercise-name">椅子スクワット</h2>
+      <p class="exercise-desc" id="exercise-desc"></p>
+      <div class="exercise-meta">
+        <span class="exercise-count" id="exercise-count">10回</span>
+        <span class="exercise-effect" id="exercise-effect">脚力・バランス</span>
+      </div>
+      <div class="timer-area">
+        <div class="timer-circle" id="timer-circle">
+          <div><span id="timer-display">60</span><small>秒</small></div>
+        </div>
+        <div class="timer-buttons">
+          <button class="btn-timer" id="btn-start-timer" onclick="startTimer()">▶ スタート</button>
+          <button class="btn-timer btn-timer-pause" id="btn-pause-timer" onclick="pauseTimer()" style="display:none">⏸ 一時停止</button>
+        </div>
+      </div>
+    </div>
+    <div class="exercise-nav">
+      <button class="btn-secondary" id="btn-prev" onclick="prevExercise()" disabled>← 前へ</button>
+      <button class="btn-primary" id="btn-next" onclick="nextExercise()" style="margin-top:0">次へ →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== COMPLETE ===================== -->
+<div id="screen-complete" class="screen">
+  <div class="complete-content">
+    <div class="complete-icon">🎉</div>
+    <h2 class="complete-title">今日の運動完了！</h2>
+    <p class="complete-message" id="complete-message"></p>
+    <div class="complete-stats">
+      <div class="stat-item"><span class="stat-num" id="streak-complete">0</span><span class="stat-label">日連続</span></div>
+      <div class="stat-item"><span class="stat-num" id="total-complete">0</span><span class="stat-label">累計日数</span></div>
+    </div>
+    <div class="share-section">
+      <p class="share-hint">家族にシェアしよう！</p>
+      <button class="btn-share" onclick="shareComplete()">📤 今日も運動しました！をシェア</button>
+    </div>
+    <button class="btn-primary" onclick="App.goTo('screen-home')">ホームに戻る</button>
+  </div>
+</div>
+
+<!-- ===================== CALENDAR ===================== -->
+<div id="screen-calendar" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="App.goTo('screen-home')">← 戻る</button>
+    <span class="screen-title">継続カレンダー</span>
+  </div>
+  <div class="calendar-content">
+    <div class="calendar-nav">
+      <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
+      <span class="cal-month-label" id="cal-month-label"></span>
+      <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
+    </div>
+    <div class="calendar-weekdays"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+    <div class="calendar-legend">
+      <span class="legend-item"><span class="legend-dot done">○</span> 運動した</span>
+      <span class="legend-item"><span class="legend-dot today">◎</span> 今日</span>
+    </div>
+    <div class="cal-summary">
+      <div class="cal-stat"><span class="cal-stat-num" id="cal-done-count">0</span><span class="cal-stat-label">今月の達成日数</span></div>
+      <div class="cal-stat"><span class="cal-stat-num" id="cal-streak">0</span><span class="cal-stat-label">現在の連続記録</span></div>
+    </div>
+  </div>
+  <nav class="bottom-nav">
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-home')">🏠<br><small>ホーム</small></button>
+    <button class="nav-btn active" onclick="setActiveNav(this);App.goTo('screen-calendar')">📅<br><small>カレンダー</small></button>
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-health-graph')">📊<br><small>健康</small></button>
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-mypage')">👤<br><small>マイページ</small></button>
+  </nav>
+</div>
+
+<!-- ===================== MY PAGE ===================== -->
+<div id="screen-mypage" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="App.goTo('screen-home')">← 戻る</button>
+    <span class="screen-title">マイページ</span>
+  </div>
+  <div class="mypage-content">
+    <div class="mypage-profile">
+      <div class="mypage-avatar" id="mypage-avatar">👴</div>
+      <div class="mypage-info">
+        <p class="mypage-name" id="mypage-name">名前</p>
+        <p class="mypage-age" id="mypage-age">年齢</p>
+      </div>
+    </div>
+    <div class="mypage-stats">
+      <div class="cal-stat"><span class="cal-stat-num" id="mypage-streak">0</span><span class="cal-stat-label">現在の連続記録</span></div>
+      <div class="cal-stat"><span class="cal-stat-num" id="mypage-total">0</span><span class="cal-stat-label">累計達成日数</span></div>
+    </div>
+    <div class="mypage-actions">
+      <button class="mypage-btn" onclick="App.editProfile()">✏️ プロフィールを編集</button>
+      <button class="mypage-btn" onclick="App.goTo('screen-premium')">⭐ Premiumプラン</button>
+      <button class="mypage-btn danger" onclick="Auth.logout()">🔄 別のユーザーに切り替え</button>
+    </div>
+  </div>
+  <nav class="bottom-nav">
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-home')">🏠<br><small>ホーム</small></button>
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-calendar')">📅<br><small>カレンダー</small></button>
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-health-graph')">📊<br><small>健康</small></button>
+    <button class="nav-btn active" onclick="setActiveNav(this);App.goTo('screen-mypage')">👤<br><small>マイページ</small></button>
+  </nav>
+</div>
+
+<!-- ===================== PREMIUM ===================== -->
+<div id="screen-premium" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="App.goTo('screen-home')">← 戻る</button>
+    <span class="screen-title">Premiumプラン</span>
+  </div>
+  <div class="premium-content">
+    <div class="premium-badge">⭐ PREMIUM</div>
+    <div class="premium-price"><span class="price-main">¥500</span><span class="price-period">/月</span></div>
+    <p class="price-alt">または €4.99/月</p>
+    <ul class="premium-features">
+      <li><span class="feat-icon">🤖</span> AIコーチ（パーソナライズメッセージ）</li>
+      <li><span class="feat-icon">👨‍👩‍👧</span> 家族共有（運動完了をお知らせ）</li>
+      <li><span class="feat-icon">📊</span> 詳細な記録・グラフ</li>
+      <li><span class="feat-icon">⏰</span> リマインダー通知</li>
+      <li><span class="feat-icon">🏋️</span> 追加プログラム（30種類以上）</li>
+    </ul>
+    <div class="free-features">
+      <h3>無料プランでできること</h3>
+      <ul><li>✅ 毎日の5分運動</li><li>✅ 継続カレンダー</li><li>✅ 基本メニュー</li></ul>
+    </div>
+    <button class="btn-premium">⭐ Premiumを始める（7日間無料）</button>
+    <p class="premium-note">いつでもキャンセル可能です</p>
+  </div>
+</div>
+
+<!-- ===================== HEALTH GRAPH ===================== -->
+<div id="screen-health-graph" class="screen">
+  <div class="top-bar">
+    <button class="back-btn" onclick="App.goTo('screen-home')">← 戻る</button>
+    <span class="screen-title">健康グラフ</span>
+  </div>
+  <div class="hgraph-tabs">
+    <button class="hgraph-tab active" id="tab-weight" onclick="HGraph.switchTab('weight',this)">⚖️ 体重</button>
+    <button class="hgraph-tab" id="tab-bp" onclick="HGraph.switchTab('bp',this)">❤️ 血圧</button>
+    <button class="hgraph-tab" id="tab-med" onclick="HGraph.switchTab('medicine',this)">💊 服薬</button>
+  </div>
+  <!-- Weight Panel -->
+  <div class="hgraph-panel active" id="panel-weight">
+    <div class="hgraph-latest">
+      <div class="hgraph-latest-label">最新の体重</div>
+      <div class="hgraph-latest-value" id="weight-latest-val">-- kg</div>
+      <div class="hgraph-latest-date" id="weight-latest-date"></div>
+    </div>
+    <div class="hgraph-canvas-wrap"><canvas id="chart-weight" height="200"></canvas></div>
+    <div style="text-align:center;margin-bottom:12px">
+      <button class="btn-small" onclick="HealthModal.open('weight')">＋ 体重を記録</button>
+    </div>
+    <div class="hgraph-history">
+      <div class="hgraph-history-title">記録一覧</div>
+      <div id="history-weight"></div>
+    </div>
+  </div>
+  <!-- BP Panel -->
+  <div class="hgraph-panel" id="panel-bp">
+    <div class="hgraph-latest">
+      <div class="hgraph-latest-label">最新の血圧</div>
+      <div class="hgraph-latest-value" id="bp-latest-val">--/-- mmHg</div>
+      <div class="hgraph-latest-date" id="bp-latest-date"></div>
+    </div>
+    <div class="hgraph-canvas-wrap"><canvas id="chart-bp" height="200"></canvas></div>
+    <div style="text-align:center;margin-bottom:12px">
+      <button class="btn-small" onclick="HealthModal.open('bp')">＋ 血圧を記録</button>
+    </div>
+    <div class="hgraph-history">
+      <div class="hgraph-history-title">記録一覧</div>
+      <div id="history-bp"></div>
+    </div>
+  </div>
+  <!-- Medicine Panel -->
+  <div class="hgraph-panel" id="panel-medicine">
+    <div class="hgraph-latest">
+      <div class="hgraph-latest-label">今月の服薬率</div>
+      <div class="hgraph-latest-value" id="med-latest-val">--%</div>
+      <div class="hgraph-latest-date" id="med-latest-date"></div>
+    </div>
+    <div class="hgraph-canvas-wrap"><canvas id="chart-medicine" height="200"></canvas></div>
+    <div style="text-align:center;margin-bottom:12px">
+      <button class="btn-small" onclick="HealthModal.open('medicine')">＋ 服薬を記録</button>
+    </div>
+    <div class="hgraph-history">
+      <div class="hgraph-history-title">記録一覧</div>
+      <div id="history-medicine"></div>
+    </div>
+  </div>
+  <nav class="bottom-nav">
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-home')">🏠<br><small>ホーム</small></button>
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-calendar')">📅<br><small>カレンダー</small></button>
+    <button class="nav-btn active" onclick="setActiveNav(this);App.goTo('screen-health-graph')">📊<br><small>健康</small></button>
+    <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-mypage')">👤<br><small>マイページ</small></button>
+  </nav>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
