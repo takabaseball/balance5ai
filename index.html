@@ -195,6 +195,7 @@
       <button class="medicine-toggle-btn not-taken" id="home-medicine-btn" onclick="event.stopPropagation();HealthModal.toggleMedicine()">記録する</button>
     </div>
     <button class="btn-text" onclick="App.goTo('screen-health-graph')" style="margin-top:4px">📊 グラフで見る →</button>
+    <button class="btn-text" onclick="App.goTo('screen-wellness')">🌿 睡眠・水分・安全チェック →</button>
   </div>
   <nav class="bottom-nav">
     <button class="nav-btn active" onclick="setActiveNav(this);App.goTo('screen-home')">🏠<br><small>ホーム</small></button>
@@ -491,6 +492,8 @@
     <div class="mypage-actions">
       <button class="mypage-btn" onclick="App.editProfile()">✏️ プロフィールを編集</button>
       <button class="mypage-btn" onclick="App.goTo('screen-premium')">⭐ Premiumプラン</button>
+      <button class="mypage-btn" onclick="App.goTo('screen-family')">👨‍👩‍👧 家族の見守り設定</button>
+      <button class="mypage-btn" onclick="App.goTo('screen-report')">🩺 通院用レポート</button>
     </div>
     <div class="privacy-card">
       <div class="privacy-card-icon">🔒</div>
@@ -509,6 +512,41 @@
     <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-health-graph')">📊<br><small>健康</small></button>
     <button class="nav-btn active" onclick="setActiveNav(this);App.goTo('screen-mypage')">👤<br><small>マイページ</small></button>
   </nav>
+</div>
+
+<!-- ===================== WELLNESS HUB ===================== -->
+<div id="screen-wellness" class="screen">
+  <div class="top-bar"><button class="back-btn" onclick="App.goTo('screen-home')">← 戻る</button><span class="screen-title">生活と安全</span></div>
+  <div class="wellness-content">
+    <div class="info-banner"><span>🌿</span><div><strong>無理なく、今日の状態を記録</strong><p>診断ではなく、いつもとの違いに気づくための記録です。</p></div></div>
+    <section class="wellness-card"><div class="section-heading"><span>😴</span><div><h2>睡眠</h2><p>昨夜の休息を教えてください</p></div></div><div class="field-row"><label>睡眠時間<input id="well-sleep-hours" type="number" min="0" max="24" step="0.5" placeholder="例：7" /> <small>時間</small></label><label>満足度<select id="well-sleep-quality"><option value="">選択</option><option value="good">よく眠れた</option><option value="normal">ふつう</option><option value="poor">あまり眠れない</option></select></label></div><button class="btn-small" onclick="Wellness.saveSleep()">睡眠を記録</button></section>
+    <section class="wellness-card"><div class="section-heading"><span>💧</span><div><h2>水分</h2><p>こまめな水分補給を意識しましょう</p></div></div><div class="water-counter"><button onclick="Wellness.changeWater(-1)">−</button><strong><span id="well-water-count">0</span><small>杯</small></strong><button onclick="Wellness.changeWater(1)">＋</button></div><button class="btn-small" onclick="Wellness.saveWater()">水分量を記録</button></section>
+    <section class="wellness-card"><div class="section-heading"><span>🧍</span><div><h2>転倒リスクのセルフチェック</h2><p>週1回の簡単な確認です。診断ではありません。</p></div></div><div class="mini-options" id="fall-options"><button onclick="Wellness.select('fall','none',this)">特に不安なし</button><button onclick="Wellness.select('fall','some',this)">少し不安</button><button onclick="Wellness.select('fall','often',this)">つまずきがある</button></div><button class="btn-small" onclick="Wellness.saveFall()">チェックを保存</button></section>
+    <section class="wellness-card"><div class="section-heading"><span>🏠</span><div><h2>家の安全チェック</h2><p>転倒しやすい場所を一緒に確認します</p></div></div><div class="safety-list"><label><input type="checkbox" data-safety="light" /> 夜間の照明がある</label><label><input type="checkbox" data-safety="floor" /> 通路に物やコードがない</label><label><input type="checkbox" data-safety="bath" /> 浴室・トイレが滑りにくい</label><label><input type="checkbox" data-safety="support" /> 必要な場所に手すりがある</label></div><button class="btn-small" onclick="Wellness.saveSafety()">安全チェックを保存</button></section>
+    <section class="wellness-card"><div class="section-heading"><span>📅</span><div><h2>通院・相談メモ</h2><p>次回の予定と医師に聞きたいこと</p></div></div><input class="field-input" id="appointment-date" type="date" /><textarea class="field-input" id="appointment-note" rows="3" placeholder="聞きたいこと、気になる症状など"></textarea><button class="btn-small" onclick="Wellness.saveAppointment()">予定を保存</button></section>
+    <div class="wellness-actions"><button class="btn-secondary" onclick="Voice.readToday()">🔊 今日の記録を読み上げ</button><button class="btn-secondary" onclick="App.goTo('screen-report')">🩺 レポートを見る</button></div>
+  </div>
+</div>
+
+<!-- ===================== FAMILY DASHBOARD ===================== -->
+<div id="screen-family" class="screen">
+  <div class="top-bar"><button class="back-btn" onclick="App.goTo('screen-mypage')">← 戻る</button><span class="screen-title">家族の見守り</span></div>
+  <div class="family-content">
+    <div class="privacy-hero"><span>🔒</span><div><strong id="family-share-status">家族共有：オフ</strong><p>本人が許可したサマリーだけを共有します。いつでも停止できます。</p></div><button class="toggle-btn" id="family-share-toggle" onclick="Family.toggleShare()">オフ</button></div>
+    <section class="family-card"><div class="section-heading"><span>👀</span><div><h2>共有レベル</h2><p>初期設定は最小限の「安心確認」です</p></div></div><div class="share-levels"><label><input type="radio" name="share-level" value="1" onchange="Family.setLevel(this.value)" /> <strong>レベル1：安心確認</strong><small>利用・運動完了・記録の有無</small></label><label><input type="radio" name="share-level" value="2" onchange="Family.setLevel(this.value)" /> <strong>レベル2：生活サマリー</strong><small>服薬・体調・睡眠・水分の達成状況</small></label><label><input type="radio" name="share-level" value="3" onchange="Family.setLevel(this.value)" /> <strong>レベル3：詳細記録</strong><small>体重・血圧などの詳細（明示許可が必要）</small></label></div></section>
+    <section class="family-card"><div class="section-heading"><span>👨‍👩‍👧</span><div><h2>共有する家族</h2><p>個別の招待名で管理します</p></div></div><div id="family-members" class="member-list"></div><div class="member-add"><input class="field-input" id="family-member-input" placeholder="例：太郎さん" /><button class="btn-small" onclick="Family.addMember()">追加</button></div></section>
+    <section class="family-card"><div class="section-heading"><span>🔔</span><div><h2>通知設計</h2><p>不安をあおらず、必要なときだけ知らせます</p></div></div><label class="switch-row"><span>3日間記録がないとき</span><input id="notify-missing" type="checkbox" onchange="Family.saveNotifications()" /></label><label class="switch-row"><span>本人が相談を希望したとき</span><input id="notify-consult" type="checkbox" checked onchange="Family.saveNotifications()" /></label><label class="switch-row"><span>1日1回のまとめ通知</span><input id="notify-digest" type="checkbox" checked onchange="Family.saveNotifications()" /></label><div class="quiet-row"><label>通知時間帯 <select id="notify-window" onchange="Family.saveNotifications()"><option value="day">8:00〜20:00</option><option value="morning">8:00〜12:00</option><option value="evening">16:00〜20:00</option></select></label><button class="btn-secondary" onclick="Family.requestNotifications()">通知を許可</button></div></section>
+    <section class="family-card"><div class="section-heading"><span>📋</span><div><h2>今日の様子</h2><p id="family-last-updated"></p></div></div><div class="family-summary" id="family-summary"></div><div class="family-notice" id="family-notice"></div></section>
+    <section class="family-card"><div class="section-heading"><span>🧾</span><div><h2>共有履歴</h2><p>誰に何を共有したかを本人も確認できます</p></div></div><div id="family-audit" class="audit-list"></div></section>
+    <button class="btn-danger" onclick="Family.pause()">家族共有を一時停止</button>
+    <p class="disclaimer">この機能は安否確認や診断を保証するものではありません。強い症状がある場合は、地域の緊急窓口や医療機関にご相談ください。</p>
+  </div>
+</div>
+
+<!-- ===================== VISIT REPORT ===================== -->
+<div id="screen-report" class="screen">
+  <div class="top-bar"><button class="back-btn" onclick="App.goTo('screen-mypage')">← 戻る</button><span class="screen-title">通院用レポート</span></div>
+  <div class="report-content"><div class="report-actions"><button class="btn-secondary" onclick="window.print()">🖨️ 印刷</button><button class="btn-secondary" onclick="DataTools.exportReport()">⬇️ 保存</button></div><div class="report-sheet"><div class="report-brand">Balance5 AI</div><h1>健康記録サマリー</h1><p id="report-period"></p><div id="report-body"></div><p class="report-footnote">このレポートは記録の整理を目的としています。診断や治療の判断は医療専門家にご相談ください。</p></div></div>
 </div>
 
 <!-- ===================== PREMIUM ===================== -->

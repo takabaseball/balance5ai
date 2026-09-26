@@ -23,7 +23,14 @@ const DB = {
   deleteHealth(uid,type,date){
     const arr=this.getHealth(uid,type).filter(r=>r.date!==date);
     this.saveHealth(uid,type,arr);
-  }
+  },
+  wellnessKey(uid,type){ return 'b5_wellness_'+uid+'_'+type; },
+  getWellness(uid,type){ return JSON.parse(localStorage.getItem(this.wellnessKey(uid,type))||'[]'); },
+  saveWellness(uid,type,arr){ localStorage.setItem(this.wellnessKey(uid,type),JSON.stringify(arr)); },
+  addWellness(uid,type,record){ const arr=this.getWellness(uid,type).filter(r=>r.date!==record.date); arr.push(record); this.saveWellness(uid,type,arr); },
+  settingsKey(uid){ return 'b5_settings_'+uid; },
+  getSettings(uid){ return JSON.parse(localStorage.getItem(this.settingsKey(uid))||'{}'); },
+  saveSettings(uid,data){ localStorage.setItem(this.settingsKey(uid),JSON.stringify(data)); }
 };
 
 // ============================================================
@@ -66,6 +73,9 @@ const App = {
     if(id==='screen-userselect') renderUserSelect();
     if(id==='screen-health-graph') HGraph.init();
     if(id==='screen-health-wizard') Wizard.start();
+    if(id==='screen-wellness') Wellness.init();
+    if(id==='screen-family') Family.init();
+    if(id==='screen-report') Report.init();
     const navMap={'screen-home':0,'screen-calendar':1,'screen-health-graph':2,'screen-mypage':3};
     if(navMap[id]!==undefined){
       document.querySelectorAll('.bottom-nav').forEach(nav=>nav.querySelectorAll('.nav-btn').forEach((btn,i)=>btn.classList.toggle('active',i===navMap[id])));
@@ -552,7 +562,7 @@ function initHome(){
 const DataTools={
   exportData(){
     const payload={app:'Balance5 AI',version:1,exportedAt:new Date().toISOString(),users:DB.getUsers(),session:DB.getSession(),records:{}};
-    payload.users.forEach(u=>{payload.records[u.id]={completed:DB.getCompleted(u.id),weight:DB.getHealth(u.id,'weight'),bp:DB.getHealth(u.id,'bp'),medicine:DB.getHealth(u.id,'medicine')};});
+    payload.users.forEach(u=>{payload.records[u.id]={completed:DB.getCompleted(u.id),weight:DB.getHealth(u.id,'weight'),bp:DB.getHealth(u.id,'bp'),medicine:DB.getHealth(u.id,'medicine'),wellness:Object.fromEntries(['sleep','water','fall','safety','appointment','checkin'].map(t=>[t,DB.getWellness(u.id,t)])),settings:DB.getSettings(u.id)};});
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='balance5-backup-'+getTodayString()+'.json'; a.click(); URL.revokeObjectURL(a.href);
   },
@@ -564,13 +574,58 @@ const DataTools={
       if(data.app!=='Balance5 AI'||!Array.isArray(data.users)||!data.records) throw new Error('invalid');
       if(!confirm('バックアップの記録を復元します。現在のデータは上書きされます。続けますか？')) return;
       DB.saveUsers(data.users);
-      data.users.forEach(u=>{const r=data.records[u.id]||{};DB.saveHealth(u.id,'weight',r.weight||[]);DB.saveHealth(u.id,'bp',r.bp||[]);DB.saveHealth(u.id,'medicine',r.medicine||[]);localStorage.setItem(DB.completedKey(u.id),JSON.stringify(r.completed||[]));});
+      data.users.forEach(u=>{const r=data.records[u.id]||{};DB.saveHealth(u.id,'weight',r.weight||[]);DB.saveHealth(u.id,'bp',r.bp||[]);DB.saveHealth(u.id,'medicine',r.medicine||[]);Object.entries(r.wellness||{}).forEach(([t,a])=>DB.saveWellness(u.id,t,a||[]));if(r.settings)DB.saveSettings(u.id,r.settings);localStorage.setItem(DB.completedKey(u.id),JSON.stringify(r.completed||[]));});
       if(data.session&&DB.getUser(data.session)) DB.setSession(data.session);
       alert('バックアップを復元しました。'); App.initStart();
     }catch(e){alert('バックアップファイルを読み込めませんでした。');} finally{event.target.value='';}};
     reader.readAsText(file);
-  }
+  },
+  exportReport(){const body=document.getElementById('report-body')?.innerText||'';const blob=new Blob([body],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='balance5-health-report-'+getTodayString()+'.txt';a.click();URL.revokeObjectURL(a.href);}
 };
+
+
+const Wellness={
+  selected:{fall:null},water:0,
+  init(){
+    const uid=App.currentUserId(); if(!uid) return;
+    const today=getTodayString(), sleep=DB.getWellness(uid,'sleep').find(r=>r.date===today), water=DB.getWellness(uid,'water').find(r=>r.date===today), fall=DB.getWellness(uid,'fall').find(r=>r.date===today), safety=DB.getWellness(uid,'safety').find(r=>r.date===today), appt=DB.getWellness(uid,'appointment').find(r=>r.date===today);
+    this.water=water?.cups||0; document.getElementById('well-water-count').textContent=this.water;
+    if(sleep){document.getElementById('well-sleep-hours').value=sleep.hours||'';document.getElementById('well-sleep-quality').value=sleep.quality||'';}
+    this.selected.fall=fall?.level||null; document.querySelectorAll('#fall-options button').forEach(b=>b.classList.toggle('selected',b.textContent.includes({none:'特に',some:'少し',often:'つまずき'}[this.selected.fall]||'___')));
+    document.querySelectorAll('[data-safety]').forEach(c=>c.checked=!!safety?.items?.includes(c.dataset.safety));
+    if(appt){document.getElementById('appointment-date').value=appt.appointmentDate||'';document.getElementById('appointment-note').value=appt.note||'';}
+  },
+  saveSleep(){const uid=App.currentUserId(),hours=parseFloat(document.getElementById('well-sleep-hours').value),quality=document.getElementById('well-sleep-quality').value;if(!uid||!hours||!quality){alert('睡眠時間と満足度を選んでください');return;}DB.addWellness(uid,'sleep',{date:getTodayString(),hours,quality});this.toast('睡眠を記録しました');},
+  changeWater(delta){this.water=Math.max(0,Math.min(20,this.water+delta));document.getElementById('well-water-count').textContent=this.water;},
+  saveWater(){const uid=App.currentUserId();if(!uid)return;DB.addWellness(uid,'water',{date:getTodayString(),cups:this.water});this.toast('水分量を記録しました');},
+  select(type,val,btn){this.selected[type]=val;btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');},
+  saveFall(){const uid=App.currentUserId();if(!uid||!this.selected.fall){alert('当てはまる項目を選んでください');return;}DB.addWellness(uid,'fall',{date:getTodayString(),level:this.selected.fall});this.toast('転倒リスクのチェックを保存しました');},
+  saveSafety(){const uid=App.currentUserId();if(!uid)return;const items=[...document.querySelectorAll('[data-safety]:checked')].map(c=>c.dataset.safety);DB.addWellness(uid,'safety',{date:getTodayString(),items});this.toast('家の安全チェックを保存しました');},
+  saveAppointment(){const uid=App.currentUserId();if(!uid)return;DB.addWellness(uid,'appointment',{date:getTodayString(),appointmentDate:document.getElementById('appointment-date').value,note:document.getElementById('appointment-note').value.trim()});this.toast('通院メモを保存しました');},
+  toast(msg){const el=document.createElement('div');el.className='toast';el.textContent='✓ '+msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2200);}
+};
+
+const Family={
+  defaults:{share:false,level:'1',members:[],notifyMissing:false,notifyConsult:true,notifyDigest:true,window:'day',paused:false,audit:[]},
+  get(){const uid=App.currentUserId();return {...this.defaults,...(uid?DB.getSettings(uid):{})};},
+  save(data){const uid=App.currentUserId();if(uid)DB.saveSettings(uid,data);},
+  init(){const uid=App.currentUserId();if(!uid)return;const d=this.get();document.getElementById('family-share-status').textContent='家族共有：'+(d.share&&!d.paused?'オン':'オフ');const t=document.getElementById('family-share-toggle');t.textContent=d.share&&!d.paused?'オン':'オフ';t.classList.toggle('on',d.share&&!d.paused);document.querySelectorAll('[name="share-level"]').forEach(x=>x.checked=x.value===d.level);['notifyMissing','notifyConsult','notifyDigest'].forEach(k=>{const id={'notifyMissing':'notify-missing','notifyConsult':'notify-consult','notifyDigest':'notify-digest'}[k];document.getElementById(id).checked=!!d[k];});document.getElementById('notify-window').value=d.window;this.renderMembers(d);this.renderSummary(d);this.renderAudit(d);},
+  toggleShare(){const d=this.get();d.share=!d.share;d.paused=false;d.audit=[{at:new Date().toLocaleString('ja-JP'),text:d.share?'家族共有をオンにしました':'家族共有をオフにしました'},...(d.audit||[])].slice(0,8);this.save(d);this.init();},
+  setLevel(level){const d=this.get();d.level=level;d.audit=[{at:new Date().toLocaleString('ja-JP'),text:'共有レベルを'+level+'に変更しました'},...(d.audit||[])].slice(0,8);this.save(d);},
+  addMember(){const input=document.getElementById('family-member-input'),name=input.value.trim();if(!name)return;const d=this.get();if(!d.members.includes(name))d.members.push(name);d.audit=[{at:new Date().toLocaleString('ja-JP'),text:name+'を共有相手に追加しました'},...(d.audit||[])].slice(0,8);this.save(d);input.value='';this.init();},
+  removeMember(name){const d=this.get();d.members=d.members.filter(x=>x!==name);this.save(d);this.init();},
+  renderMembers(d){const el=document.getElementById('family-members');el.innerHTML=d.members.length?d.members.map(n=>`<span class="member-chip">${n}<button onclick="Family.removeMember('${n.replace(/'/g,"\\'")}')">×</button></span>`).join(''):'<p class="empty-note">まだ共有相手が登録されていません</p>';},
+  saveNotifications(){const d=this.get();d.notifyMissing=document.getElementById('notify-missing').checked;d.notifyConsult=document.getElementById('notify-consult').checked;d.notifyDigest=document.getElementById('notify-digest').checked;d.window=document.getElementById('notify-window').value;this.save(d);},
+  requestNotifications(){if(!('Notification' in window)){alert('このブラウザは通知に対応していません');return;}Notification.requestPermission().then(p=>alert(p==='granted'?'通知を許可しました。':'通知は許可されませんでした。'));},
+  renderSummary(d){const uid=App.currentUserId(),today=getTodayString(),u=App.currentUser(),done=DB.getCompleted(uid).includes(today),health=DB.getHealth(uid,'weight').some(r=>r.date===today)||DB.getHealth(uid,'bp').some(r=>r.date===today),med=DB.getHealth(uid,'medicine').some(r=>r.date===today),sleep=DB.getWellness(uid,'sleep').some(r=>r.date===today),days=this.missingDays(uid);document.getElementById('family-last-updated').textContent='最終更新：'+new Date().toLocaleString('ja-JP');const rows=[['利用','今日あり',true],['5分運動',done?'完了':'未記録',done],['健康記録',health?'記録あり':'未記録',health]];if(d.level!=='1')rows.push(['服薬・生活',med||sleep?'記録あり':'未記録',med||sleep]);document.getElementById('family-summary').innerHTML=rows.map(r=>`<div class="summary-row"><span>${r[0]}</span><strong class="${r[2]?'is-good':''}">${r[2]?'✓ ':''}${r[1]}</strong></div>`).join('');const notice=document.getElementById('family-notice');notice.textContent=days>=3&&d.notifyMissing?'確認推奨：記録が'+days+'日ありません。体調や予定による可能性もあります。よければ電話や訪問で様子を確認してください。':d.share?'本人が許可したサマリーのみ共有しています。':'共有はオフです。本人の同意後にオンにできます。';notice.className='family-notice '+(days>=3&&d.notifyMissing?'attention':'');},
+  missingDays(uid){let n=0,d=new Date();for(let i=0;i<30;i++){const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');if(DB.getCompleted(uid).includes(ds)||DB.getWellness(uid,'checkin').some(r=>r.date===ds))break;n++;d.setDate(d.getDate()-1);}return n;},
+  renderAudit(d){const el=document.getElementById('family-audit');el.innerHTML=(d.audit||[]).length?d.audit.map(x=>`<div class="audit-row"><span>${x.text}</span><small>${x.at}</small></div>`).join(''):'<p class="empty-note">共有設定の変更履歴がここに表示されます</p>';},
+  pause(){const d=this.get();d.paused=true;d.audit=[{at:new Date().toLocaleString('ja-JP'),text:'家族共有を一時停止しました'},...(d.audit||[])].slice(0,8);this.save(d);this.init();}
+};
+
+const Voice={readToday(){const uid=App.currentUserId();if(!uid||!('speechSynthesis' in window)){alert('音声読み上げに対応していません');return;}const today=getTodayString(),done=DB.getCompleted(uid).includes(today),w=DB.getHealth(uid,'weight').some(r=>r.date===today),b=DB.getHealth(uid,'bp').some(r=>r.date===today),m=DB.getHealth(uid,'medicine').some(r=>r.date===today);speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(`${App.currentUser().name}さん、今日の記録です。運動は${done?'完了':'まだです'}。健康記録は${w||b?'あります':'まだです'}。服薬は${m?'記録があります':'未記録です'}。無理のない一日を過ごしましょう。`));}};
+
+const Report={init(){const uid=App.currentUserId();if(!uid)return;const u=App.currentUser(),today=getTodayString(),weights=DB.getHealth(uid,'weight'),bps=DB.getHealth(uid,'bp'),med=DB.getHealth(uid,'medicine'),sleep=DB.getWellness(uid,'sleep'),water=DB.getWellness(uid,'water'),fall=DB.getWellness(uid,'fall'),appt=DB.getWellness(uid,'appointment').slice(-1)[0];document.getElementById('report-period').textContent=`対象：${u.name}さん ／ 作成日：${today}`;document.getElementById('report-body').innerHTML=`<div class="report-section"><h2>最近の記録</h2><div class="report-grid"><div><small>最新体重</small><strong>${weights.at(-1)?.weight??'--'} kg</strong></div><div><small>最新血圧</small><strong>${bps.at(-1)?bps.at(-1).sys+'/'+bps.at(-1).dia:'--/--'}</strong></div><div><small>服薬記録</small><strong>${med.filter(r=>r.taken).length}日</strong></div><div><small>運動達成</small><strong>${DB.getCompleted(uid).length}日</strong></div></div></div><div class="report-section"><h2>生活記録</h2><p>睡眠記録：${sleep.at(-1)?sleep.at(-1).hours+'時間':'--'} ／ 水分：${water.at(-1)?water.at(-1).cups+'杯':'--'}</p><p>転倒セルフチェック：${fall.at(-1)?{none:'特に不安なし',some:'少し不安',often:'つまずきがある'}[fall.at(-1).level]:'未実施'}</p></div><div class="report-section"><h2>通院メモ</h2><p>次回予定：${appt?.appointmentDate||'未登録'}</p><p>${appt?.note||'メモはありません'}</p></div>`;}};
 
 function initMyPage(){
   const user=App.currentUser(); if(!user) return;
@@ -641,6 +696,8 @@ function checkAllSelected(){
 }
 
 function goToExercise(){
+  const uid=App.currentUserId();
+  if(uid){ DB.addWellness(uid,'checkin',{date:getTodayString(),condition:currentCondition,sleep:currentSleep,mood:currentMood}); }
   const set=EXERCISES[currentCondition]||EXERCISES.good;
   const off=Math.floor((new Date()-new Date(new Date().getFullYear(),0,0))/86400000)%set.length;
   currentExerciseSet=[...set.slice(off),...set.slice(0,off)];
