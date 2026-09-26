@@ -134,8 +134,23 @@
   </div>
   <div class="coach-card">
     <div class="coach-avatar">🤖</div>
-    <div class="coach-bubble"><p id="coach-message">おはようございます！今日も5分だけ体を動かしましょう。</p></div>
+    <div class="coach-bubble"><p class="coach-label">Balance5コーチ</p><p id="coach-message">おはようございます！今日も5分だけ体を動かしましょう。</p></div>
   </div>
+  <section class="today-focus" aria-labelledby="today-focus-title">
+    <div class="today-focus-head">
+      <div><p class="eyebrow">TODAY'S BALANCE</p><h2 id="today-focus-title">今日のコンディション</h2></div>
+      <span class="today-date" id="today-date"></span>
+    </div>
+    <div class="today-progress-row">
+      <div class="progress-ring" id="today-progress-ring"><span id="today-progress-value">0%</span></div>
+      <div class="today-progress-copy"><strong id="today-progress-title">まずは体調をチェック</strong><p id="today-progress-detail">5分の運動と健康記録で、今日の自分を整えましょう。</p></div>
+    </div>
+    <div class="today-checklist">
+      <span id="check-exercise" class="check-pill">○ 運動</span>
+      <span id="check-health" class="check-pill">○ 健康記録</span>
+      <span id="check-medicine" class="check-pill">○ 服薬</span>
+    </div>
+  </section>
   <div class="streak-bar">
     <span class="streak-icon">🔥</span>
     <span id="streak-count">0</span>
@@ -476,8 +491,17 @@
     <div class="mypage-actions">
       <button class="mypage-btn" onclick="App.editProfile()">✏️ プロフィールを編集</button>
       <button class="mypage-btn" onclick="App.goTo('screen-premium')">⭐ Premiumプラン</button>
-      <button class="mypage-btn danger" onclick="Auth.logout()">🔄 別のユーザーに切り替え</button>
     </div>
+    <div class="privacy-card">
+      <div class="privacy-card-icon">🔒</div>
+      <div><strong>データはこの端末に保存</strong><p>記録は外部に送信せず、このブラウザに保存されます。</p></div>
+    </div>
+    <div class="data-actions">
+      <button class="mypage-btn secondary" onclick="DataTools.exportData()">⬇️ 記録をバックアップ</button>
+      <button class="mypage-btn secondary" onclick="document.getElementById('import-file').click()">⬆️ バックアップを復元</button>
+      <input type="file" id="import-file" accept="application/json" hidden onchange="DataTools.importData(event)" />
+    </div>
+    <button class="mypage-btn danger" onclick="Auth.logout()">🔄 別のユーザーに切り替え</button>
   </div>
   <nav class="bottom-nav">
     <button class="nav-btn" onclick="setActiveNav(this);App.goTo('screen-home')">🏠<br><small>ホーム</small></button>

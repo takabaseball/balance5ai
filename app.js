@@ -66,6 +66,10 @@ const App = {
     if(id==='screen-userselect') renderUserSelect();
     if(id==='screen-health-graph') HGraph.init();
     if(id==='screen-health-wizard') Wizard.start();
+    const navMap={'screen-home':0,'screen-calendar':1,'screen-health-graph':2,'screen-mypage':3};
+    if(navMap[id]!==undefined){
+      document.querySelectorAll('.bottom-nav').forEach(nav=>nav.querySelectorAll('.nav-btn').forEach((btn,i)=>btn.classList.toggle('active',i===navMap[id])));
+    }
   },
   initStart(){
     const users=DB.getUsers(),session=DB.getSession();
@@ -515,20 +519,58 @@ function initHome(){
   const user=App.currentUser(); if(!user){App.initStart();return;}
   document.getElementById('home-avatar').textContent=user.avatar||'👤';
   document.getElementById('home-username').textContent=user.name+'さん';
-  const h=new Date().getHours();
+  const now=new Date(), h=now.getHours();
   const msgs=h<12?COACH_MSG.morning:h<17?COACH_MSG.afternoon:COACH_MSG.evening;
   document.getElementById('coach-message').textContent=msgs[Math.floor(Math.random()*msgs.length)];
   const dates=DB.getCompleted(user.id);
   document.getElementById('streak-count').textContent=getStreak(dates);
-  const today=getTodayString();
-  const doneToday=dates.includes(today);
-  const mp=new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');
+  const today=getTodayString(), doneToday=dates.includes(today);
+  const mp=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   const mc=dates.filter(d=>d.startsWith(mp)).length;
   document.getElementById('calendar-summary').textContent=doneToday?'今日完了済み ✓ 今月'+mc+'日達成':'今月'+mc+'日達成';
   document.querySelector('.btn-exercise').style.opacity=doneToday?'0.6':'1';
   document.getElementById('exercise-card-sub').textContent=doneToday?'今日は完了済みです ✓':'AIがメニューを提案します';
+  const dateEl=document.getElementById('today-date');
+  if(dateEl) dateEl.textContent=(now.getMonth()+1)+'月'+now.getDate()+'日（'+['日','月','火','水','木','金','土'][now.getDay()]+'）';
+  const weight=DB.getHealth(user.id,'weight').some(r=>r.date===today);
+  const bp=DB.getHealth(user.id,'bp').some(r=>r.date===today);
+  const med=DB.getHealth(user.id,'medicine').some(r=>r.date===today);
+  const health=weight||bp;
+  const completeCount=[doneToday,health,med].filter(Boolean).length;
+  const percent=Math.round(completeCount/3*100);
+  const ring=document.getElementById('today-progress-ring');
+  if(ring) ring.style.background='conic-gradient(var(--primary) '+(percent*3.6)+'deg, #dcebe1 0deg)';
+  const value=document.getElementById('today-progress-value'); if(value) value.textContent=percent+'%';
+  const title=document.getElementById('today-progress-title');
+  if(title) title.textContent=percent===100?'今日の習慣を達成しました！':percent===0?'まずは体調をチェック':completeCount+'つの習慣を記録しました';
+  const detail=document.getElementById('today-progress-detail');
+  if(detail) detail.textContent=percent===100?'すばらしい一日です。明日も無理なく続けましょう。':'できることからひとつずつ。あなたのペースで大丈夫です。';
+  [['check-exercise',doneToday],['check-health',health],['check-medicine',med]].forEach(([id,done])=>{const el=document.getElementById(id);if(el){el.classList.toggle('done',done);el.textContent=(done?'✓ ':'○ ')+(id==='check-exercise'?'運動':id==='check-health'?'健康記録':'服薬');}});
   HealthHome.update();
 }
+
+const DataTools={
+  exportData(){
+    const payload={app:'Balance5 AI',version:1,exportedAt:new Date().toISOString(),users:DB.getUsers(),session:DB.getSession(),records:{}};
+    payload.users.forEach(u=>{payload.records[u.id]={completed:DB.getCompleted(u.id),weight:DB.getHealth(u.id,'weight'),bp:DB.getHealth(u.id,'bp'),medicine:DB.getHealth(u.id,'medicine')};});
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='balance5-backup-'+getTodayString()+'.json'; a.click(); URL.revokeObjectURL(a.href);
+  },
+  importData(event){
+    const file=event.target.files&&event.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=()=>{try{
+      const data=JSON.parse(reader.result);
+      if(data.app!=='Balance5 AI'||!Array.isArray(data.users)||!data.records) throw new Error('invalid');
+      if(!confirm('バックアップの記録を復元します。現在のデータは上書きされます。続けますか？')) return;
+      DB.saveUsers(data.users);
+      data.users.forEach(u=>{const r=data.records[u.id]||{};DB.saveHealth(u.id,'weight',r.weight||[]);DB.saveHealth(u.id,'bp',r.bp||[]);DB.saveHealth(u.id,'medicine',r.medicine||[]);localStorage.setItem(DB.completedKey(u.id),JSON.stringify(r.completed||[]));});
+      if(data.session&&DB.getUser(data.session)) DB.setSession(data.session);
+      alert('バックアップを復元しました。'); App.initStart();
+    }catch(e){alert('バックアップファイルを読み込めませんでした。');} finally{event.target.value='';}};
+    reader.readAsText(file);
+  }
+};
 
 function initMyPage(){
   const user=App.currentUser(); if(!user) return;
